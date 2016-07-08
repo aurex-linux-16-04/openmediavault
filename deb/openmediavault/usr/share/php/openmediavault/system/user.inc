@@ -65,13 +65,16 @@ class User {
 		case "shadow":
 			if (!is_null($this->password))
 				return;
+
 			// http://www.cyberciti.biz/faq/understanding-etcshadow-file
 			$cmdArgs = [];
-			$cmdArgs[] = "shadow";
-			$cmdArgs[] = escapeshellarg($this->getName());
-			$cmd = new \OMV\System\Process("getent", $cmdArgs);
-			$cmd->setRedirect2to1();
-			$cmd->execute($output);
+			//$cmdArgs[] = "shadow";
+			//$cmdArgs[] = escapeshellarg($this->getName());
+			//$cmd = new \OMV\System\Process("getent", $cmdArgs);
+			//$cmd->setRedirect2to1();
+			//$cmd->execute($output);
+			$output = [];
+			$output[] = $this->getName().":*:16317:0:99999:7:::";
 			$output = explode(":", $output[0]);
 			$this->password = $output[1];
 			$this->lastchanged = $output[2];
@@ -88,9 +91,9 @@ class User {
 			// Query user information.
 			$userInfo = FALSE;
 			if (!is_null($this->uid))
-				$userInfo = posix_getpwuid($this->uid);
+				$userInfo = new_posix_getpwuid($this->uid);
 			else
-				$userInfo = posix_getpwnam($this->name);
+				$userInfo = new_posix_getpwnam($this->name);
 			if (FALSE === $userInfo) {
 				throw new \OMV\Exception(
 				  "Failed to get information about the user '%s': %s",
@@ -120,7 +123,7 @@ class User {
 			// Resolve the group names.
 			$this->groups = [];
 			foreach ($gids as $gidk => $gidv) {
-				$groupInfo = posix_getgrgid($gidv);
+				$groupInfo = new_posix_getgrgid($gidv);
 				$this->groups[] = $groupInfo['name'];
 			}
 			break;
@@ -339,7 +342,7 @@ class User {
 	 * @throw \OMV\ExecException
 	 */
 	public static function getUsers() {
-		$cmd = new \OMV\System\Process("getent", "passwd");
+		$cmd = new \OMV\System\Process("getent", "passwd |grep -v '^al\|^a0'");
 		$cmd->setRedirect2to1();
 		$cmd->execute($output);
 		// Parse command output:
@@ -359,3 +362,52 @@ class User {
 		return $list;
 	}
 }
+
+
+function new_posix_parser($txt){
+	if(empty($txt)) {
+		return FALSE;
+	}
+
+	$data = explode(":", $txt);
+
+	$user_info=array("name"   => $data[0],
+                         "passwd" => $data[1],
+			 "uid"    => $data[2],
+			 "gid"    => $data[3],
+			 "gecos"  => $data[4],
+			 "dir"	  => $data[5],
+			 "shell"  => $data[6]);
+	return $user_info;
+}
+
+function new_posix_getpwnam($username){
+	$cmdout = shell_exec( "getent passwd ".$username);
+	# "lgarcia:x:1000:1000:Luis,,,:/home/lgarcia:/bin/bash";
+	return new_posix_parser($cmdout);	
+}
+
+function new_posix_getpwuid($userid){
+	$cmdout = shell_exec( "getent passwd |grep '^\([^:]\+:\)\{2\}".strval($userid).":'");
+	# "lgarcia:x:1000:1000:Luis,,,:/home/lgarcia:/bin/bash";
+	return new_posix_parser($cmdout);	
+}
+
+function new_posix_getgrgid($groupid){
+	$cmdout = shell_exec( "getent group |grep '^\([^:]\+:\)\{2\}".strval($groupid).":'");
+	#adm:x:4:syslog,lgarcia
+	if(empty($cmdout)) {
+		return FALSE;
+	}
+
+	$data = explode(":", $cmdout);
+
+	$group_info=array("name"   => $data[0],
+                         "passwd"  => $data[1],
+			 "gid"     => $data[2],
+			 "members" => explode(",", $data[3]));
+	return $group_info;
+	
+	
+}
+
