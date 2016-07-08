@@ -1,0 +1,12 @@
+diff -uNr openmediavault/usr/share/php/openmediavault/system/user.inc openmediavault-patched/usr/share/php/openmediavault/system/user.inc
+--- openmediavault/usr/share/php/openmediavault/system/user.inc	2016-07-08 14:50:05.460000000 +0200
++++ openmediavault-patched/usr/share/php/openmediavault/system/user.inc	2016-07-08 18:17:57.284124805 +0200
+@@ -339,7 +339,7 @@
+ 	 * @throw \OMV\ExecException
+ 	 */
+ 	public static function getUsers() {
+-		$cmd = new \OMV\System\Process("getent", "passwd");
++		$cmd = new \OMV\System\Process("getent", "passwd |grep -v '^al\|^a0'");
+ 		$cmd->setRedirect2to1();
+ 		$cmd->execute($output);
+ 		// Parse command output:
